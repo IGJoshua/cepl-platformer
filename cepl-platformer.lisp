@@ -2,6 +2,8 @@
 
 (in-package #:cepl-platformer)
 
+(defvar *running* nil)
+
 (defparameter +quad-stream+ (nineveh:get-quad-stream-v2))
 (defvar *tile-textures* (make-hash-table :test 'equal))
 
@@ -41,14 +43,27 @@
   ((tiles :initarg :tiles)))
 
 (defun init ()
+  (setf *running* t)
   (setf *entities* nil)
   (push (make-instance 'player
                        :pos (v2! 0 0)
                        :vel (v2! 0 0)
                        :texture-path "./res/Players/Player Blue/playerBlue_stand.png") *entities*))
 
-(nineveh:define-simple-main-loop main (:on-start #'init)
+(defun step-game ()
+  (step-host)
+  (update-repl-link)
   (clear)
   (loop :for entity :in *entities*
         :do (draw entity))
   (swap))
+
+(defun run-loop ()
+  (init)
+  (slynk-mrepl::send-prompt (find (bt:current-thread) (slynk::channels)
+                                  :key #'slynk::channel-thread))
+  (loop :while (and *running* (not (shutting-down-p)))
+        :do (continuable (step-game))))
+
+(defun stop-loop ()
+  (setf *running* nil))
